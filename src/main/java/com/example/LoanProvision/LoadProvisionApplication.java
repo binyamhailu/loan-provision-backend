@@ -1,4 +1,4 @@
-package com.example.LoadProvision;
+package com.example.LoanProvision;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
