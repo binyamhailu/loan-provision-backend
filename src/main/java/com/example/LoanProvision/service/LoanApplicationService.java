@@ -61,7 +61,7 @@ public class LoanApplicationService {
         loanApplicationRepository.save(loanApplication);
 
         Loan loan = new Loan();
-        loan.setBorrowerInfo(loanApplication.getBorrower().getName());
+        loan.setBorrower(loanApplication.getBorrower());
         loan.setLoanAmount(loanApplication.getLoanAmount());
         loan.setTerm(loanApplication.getTerm());
         loan.setPurpose(loanApplication.getPurpose());
@@ -100,7 +100,7 @@ public class LoanApplicationService {
     private LoanDTO convertToLoanDTO(Loan loan) {
         LoanDTO loanDTO = new LoanDTO();
         loanDTO.setId(loan.getId());
-        loanDTO.setBorrowerInfo(loan.getBorrowerInfo());
+        loanDTO.setBorrowerInfo(loan.getBorrower().getName());
         loanDTO.setLoanAmount(loan.getLoanAmount());
         loanDTO.setTerm(loan.getTerm());
         loanDTO.setPurpose(loan.getPurpose());

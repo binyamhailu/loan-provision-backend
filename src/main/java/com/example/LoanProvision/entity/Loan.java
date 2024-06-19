@@ -8,16 +8,19 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Data
+
+
 @Entity
 @Table(name = "loans")
+@Data
 public class Loan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "borrower_info", nullable = false)
-    private String borrowerInfo;
+    @ManyToOne
+    @JoinColumn(name = "borrower_id", nullable = false)
+    private Borrower borrower;
 
     @Column(name = "loan_amount", nullable = false)
     private BigDecimal loanAmount;
@@ -30,8 +33,12 @@ public class Loan {
 
     @Column(name = "status", nullable = false)
     private String status;
-    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Repayment> repayments;
+
+    @Column(name = "balance", nullable = false)
+    private BigDecimal balance;
+
+    @Column(name = "rate", nullable = false)
+    private BigDecimal rate;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -39,5 +46,8 @@ public class Loan {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Repayment> repayments;
 }
+
 

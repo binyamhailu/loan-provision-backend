@@ -5,9 +5,9 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Data
 @Entity
 @Table(name = "borrowers")
+@Data
 public class Borrower {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,4 +28,6 @@ public class Borrower {
     @Column(name = "debt_to_income_ratio", nullable = false)
     private BigDecimal debtToIncomeRatio;
 
+    @Column(name = "balance", nullable = false)
+    private BigDecimal balance = BigDecimal.ZERO;
 }

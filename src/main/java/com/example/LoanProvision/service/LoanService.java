@@ -17,6 +17,8 @@ import com.example.LoanProvision.repository.RepaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +31,9 @@ public class LoanService {
     @Autowired
     private RepaymentRepository repaymentRepository;
 
+    @Autowired
+    private BorrowerRepository borrowerRepository;
+
     public LoanDTO disburseLoan(Long loanId) {
         Loan loan = loanRepository.findById(loanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
@@ -38,7 +43,13 @@ public class LoanService {
         }
 
         loan.setStatus("DISBURSED");
+        loan.setBalance(loan.getLoanAmount());
         loan.setUpdatedAt(LocalDateTime.now());
+
+        // Update borrower's balance
+        Borrower borrower = loan.getBorrower();
+        borrower.setBalance(borrower.getBalance().add(loan.getLoanAmount()));
+        borrowerRepository.save(borrower);
 
         loan = loanRepository.save(loan);
         return convertToLoanDTO(loan);
@@ -48,6 +59,14 @@ public class LoanService {
         Loan loan = loanRepository.findById(loanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
 
+        // Calculate the interest on the current balance
+        BigDecimal interest = loan.getBalance().multiply(loan.getRate()).divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
+        BigDecimal totalRepayment = repaymentDTO.getAmount().subtract(interest).setScale(2, RoundingMode.HALF_UP);
+
+        if (loan.getBalance().compareTo(totalRepayment) < 0) {
+            throw new ValidationException("Repayment amount exceeds the remaining balance");
+        }
+
         Repayment repayment = new Repayment();
         repayment.setLoan(loan);
         repayment.setAmount(repaymentDTO.getAmount());
@@ -55,8 +74,15 @@ public class LoanService {
 
         repaymentRepository.save(repayment);
 
+        // Update loan balance
+        loan.setBalance(loan.getBalance().subtract(totalRepayment));
         loan.setUpdatedAt(LocalDateTime.now());
         loanRepository.save(loan);
+
+        // Update borrower's balance
+        Borrower borrower = loan.getBorrower();
+        borrower.setBalance(borrower.getBalance().subtract(repaymentDTO.getAmount()));
+        borrowerRepository.save(borrower);
 
         return convertToLoanDTO(loan);
     }
@@ -72,7 +98,10 @@ public class LoanService {
         Loan loan = loanRepository.findById(loanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
 
-        return loan.getRepayments().stream()
+        // Ensure repayments are loaded while session is open
+        List<Repayment> repayments = loan.getRepayments();
+
+        return repayments.stream()
                 .map(this::convertToRepaymentDTO)
                 .collect(Collectors.toList());
     }
@@ -80,13 +109,15 @@ public class LoanService {
     private LoanDTO convertToLoanDTO(Loan loan) {
         LoanDTO loanDTO = new LoanDTO();
         loanDTO.setId(loan.getId());
-        loanDTO.setBorrowerInfo(loan.getBorrowerInfo());
+        loanDTO.setBorrowerInfo(loan.getBorrower().getName() + ", " + loan.getBorrower().getEmail());
         loanDTO.setLoanAmount(loan.getLoanAmount());
         loanDTO.setTerm(loan.getTerm());
         loanDTO.setPurpose(loan.getPurpose());
         loanDTO.setStatus(loan.getStatus());
+        loanDTO.setBalance(loan.getBalance());
         loanDTO.setCreatedAt(loan.getCreatedAt());
         loanDTO.setUpdatedAt(loan.getUpdatedAt());
+        loanDTO.setRate(loan.getRate());
         return loanDTO;
     }
 

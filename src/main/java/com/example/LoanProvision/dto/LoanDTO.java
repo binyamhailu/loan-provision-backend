@@ -13,6 +13,8 @@ public class LoanDTO {
     private Integer term;
     private String purpose;
     private String status;
+    private BigDecimal balance;
+    private BigDecimal rate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
