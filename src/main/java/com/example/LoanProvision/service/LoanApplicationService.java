@@ -1,6 +1,5 @@
 package com.example.LoanProvision.service;
 
-
 import com.example.LoanProvision.dto.LoanApplicationDTO;
 import com.example.LoanProvision.dto.LoanDTO;
 import com.example.LoanProvision.entity.Borrower;
@@ -13,14 +12,16 @@ import com.example.LoanProvision.repository.LoanApplicationRepository;
 import com.example.LoanProvision.repository.LoanRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
+
 
 @Service
 public class LoanApplicationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoanApplicationService.class);
 
     @Autowired
     private LoanApplicationRepository loanApplicationRepository;
@@ -32,10 +33,15 @@ public class LoanApplicationService {
     private LoanRepository loanRepository;
 
     public LoanApplicationDTO applyForLoan(LoanApplicationDTO loanApplicationDTO) {
+        logger.info("Applying for loan for borrower ID: {}", loanApplicationDTO.getBorrowerId());
         Borrower borrower = borrowerRepository.findById(loanApplicationDTO.getBorrowerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Borrower not found"));
+                .orElseThrow(() -> {
+                    logger.error("Borrower not found with ID: {}", loanApplicationDTO.getBorrowerId());
+                    return new ResourceNotFoundException("Borrower not found");
+                });
 
         if (borrower.getCreditScore() < 600) {
+            logger.error("Credit score too low for borrower ID: {}", loanApplicationDTO.getBorrowerId());
             throw new ValidationException("Credit score is too low");
         }
 
@@ -49,12 +55,17 @@ public class LoanApplicationService {
         loanApplication.setUpdatedAt(LocalDateTime.now());
 
         loanApplication = loanApplicationRepository.save(loanApplication);
+        logger.info("Loan application submitted successfully for borrower ID: {}", loanApplicationDTO.getBorrowerId());
         return convertToLoanApplicationDTO(loanApplication);
     }
 
     public LoanDTO approveLoanApplication(Long loanApplicationId) {
+        logger.info("Approving loan application ID: {}", loanApplicationId);
         LoanApplication loanApplication = loanApplicationRepository.findById(loanApplicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan application not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan application not found with ID: {}", loanApplicationId);
+                    return new ResourceNotFoundException("Loan application not found");
+                });
 
         loanApplication.setStatus("APPROVED");
         loanApplication.setUpdatedAt(LocalDateTime.now());
@@ -70,17 +81,23 @@ public class LoanApplicationService {
         loan.setUpdatedAt(LocalDateTime.now());
 
         loan = loanRepository.save(loan);
+        logger.info("Loan application approved successfully with ID: {}", loanApplicationId);
         return convertToLoanDTO(loan);
     }
 
     public LoanApplicationDTO rejectLoanApplication(Long loanApplicationId) {
+        logger.info("Rejecting loan application ID: {}", loanApplicationId);
         LoanApplication loanApplication = loanApplicationRepository.findById(loanApplicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan application not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan application not found with ID: {}", loanApplicationId);
+                    return new ResourceNotFoundException("Loan application not found");
+                });
 
         loanApplication.setStatus("REJECTED");
         loanApplication.setUpdatedAt(LocalDateTime.now());
 
         loanApplication = loanApplicationRepository.save(loanApplication);
+        logger.info("Loan application rejected successfully with ID: {}", loanApplicationId);
         return convertToLoanApplicationDTO(loanApplication);
     }
 
@@ -110,4 +127,3 @@ public class LoanApplicationService {
         return loanDTO;
     }
 }
-

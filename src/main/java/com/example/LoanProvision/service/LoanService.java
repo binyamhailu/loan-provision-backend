@@ -1,29 +1,30 @@
 package com.example.LoanProvision.service;
 
-import com.example.LoanProvision.dto.LoanApplicationDTO;
 import com.example.LoanProvision.dto.LoanDTO;
 import com.example.LoanProvision.dto.RepaymentDTO;
 import com.example.LoanProvision.entity.Borrower;
 import com.example.LoanProvision.entity.Loan;
-import com.example.LoanProvision.entity.LoanApplication;
 import com.example.LoanProvision.entity.Repayment;
 import com.example.LoanProvision.exception.ResourceNotFoundException;
 import com.example.LoanProvision.exception.ValidationException;
 import com.example.LoanProvision.repository.BorrowerRepository;
-import com.example.LoanProvision.repository.LoanApplicationRepository;
 import com.example.LoanProvision.repository.LoanRepository;
 import com.example.LoanProvision.repository.RepaymentRepository;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
 @Service
 public class LoanService {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoanService.class);
 
     @Autowired
     private LoanRepository loanRepository;
@@ -35,10 +36,15 @@ public class LoanService {
     private BorrowerRepository borrowerRepository;
 
     public LoanDTO disburseLoan(Long loanId) {
+        logger.info("Disbursing loan with ID: {}", loanId);
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan not found with ID: {}", loanId);
+                    return new ResourceNotFoundException("Loan not found");
+                });
 
         if (!loan.getStatus().equals("APPROVED")) {
+            logger.error("Loan not approved for disbursement with ID: {}", loanId);
             throw new ValidationException("Loan is not approved for disbursement");
         }
 
@@ -46,24 +52,28 @@ public class LoanService {
         loan.setBalance(loan.getLoanAmount());
         loan.setUpdatedAt(LocalDateTime.now());
 
-        // Update borrower's balance
         Borrower borrower = loan.getBorrower();
         borrower.setBalance(borrower.getBalance().add(loan.getLoanAmount()));
         borrowerRepository.save(borrower);
 
         loan = loanRepository.save(loan);
+        logger.info("Loan disbursed successfully with ID: {}", loanId);
         return convertToLoanDTO(loan);
     }
 
     public LoanDTO repayLoan(Long loanId, RepaymentDTO repaymentDTO) {
+        logger.info("Repaying loan with ID: {}", loanId);
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan not found with ID: {}", loanId);
+                    return new ResourceNotFoundException("Loan not found");
+                });
 
-        // Calculate the interest on the current balance
         BigDecimal interest = loan.getBalance().multiply(loan.getRate()).divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
         BigDecimal totalRepayment = repaymentDTO.getAmount().subtract(interest).setScale(2, RoundingMode.HALF_UP);
 
         if (loan.getBalance().compareTo(totalRepayment) < 0) {
+            logger.error("Repayment amount exceeds the remaining balance for loan ID: {}", loanId);
             throw new ValidationException("Repayment amount exceeds the remaining balance");
         }
 
@@ -74,33 +84,38 @@ public class LoanService {
 
         repaymentRepository.save(repayment);
 
-        // Update loan balance
         loan.setBalance(loan.getBalance().subtract(totalRepayment));
         loan.setUpdatedAt(LocalDateTime.now());
         loanRepository.save(loan);
 
-        // Update borrower's balance
         Borrower borrower = loan.getBorrower();
         borrower.setBalance(borrower.getBalance().subtract(repaymentDTO.getAmount()));
         borrowerRepository.save(borrower);
 
+        logger.info("Loan repaid successfully with ID: {}", loanId);
         return convertToLoanDTO(loan);
     }
 
     public LoanDTO getLoanDetails(Long loanId) {
+        logger.info("Fetching loan details for ID: {}", loanId);
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan not found with ID: {}", loanId);
+                    return new ResourceNotFoundException("Loan not found");
+                });
 
         return convertToLoanDTO(loan);
     }
 
     public List<RepaymentDTO> getRepaymentHistory(Long loanId) {
+        logger.info("Fetching repayment history for loan ID: {}", loanId);
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Loan not found"));
+                .orElseThrow(() -> {
+                    logger.error("Loan not found with ID: {}", loanId);
+                    return new ResourceNotFoundException("Loan not found");
+                });
 
-        // Ensure repayments are loaded while session is open
         List<Repayment> repayments = loan.getRepayments();
-
         return repayments.stream()
                 .map(this::convertToRepaymentDTO)
                 .collect(Collectors.toList());
